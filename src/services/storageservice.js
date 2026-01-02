@@ -1,118 +1,171 @@
+import { supabase } from './supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 
-const STORAGE_KEY = 'canto-ibe:data';
-
-async function seedIfNeeded() {
-  if (!localStorage.getItem(STORAGE_KEY)) {
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}data.json`);
-      const data = await res.json();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (err) {
-      console.error('Failed to seed data.json', err);
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          users: [],
-          singers: [],
-          songs: [],
-          instruments: [],
-          musicians: [],
-          schedule: [],
-          impediments: []
-        })
-      );
-    }
-  }
-}
-
-async function read() {
-  await seedIfNeeded();
-  return JSON.parse(localStorage.getItem(STORAGE_KEY));
-}
-
-async function write(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
+/* =========================
+   GENÉRICOS
+========================= */
 
 export async function getAll(entity) {
-  const db = await read();
-  return db[entity] || [];
+  const { data, error } = await supabase
+    .from(entity)
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error(error);
+    return [];
+  }
+
+  return data;
 }
 
 export async function find(entity, id) {
-  const db = await read();
-  return db[entity].find(i => i.id === id);
+  const { data, error } = await supabase
+    .from(entity)
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+
+  return data;
 }
 
 export async function upsert(entity, item) {
-  const db = await read();
-  db[entity] = db[entity] || [];
+  const payload = {
+    ...item,
+    id: item.id || uuidv4(),
+  };
 
-  if (!item.id) item.id = uuidv4();
+  const { data, error } = await supabase
+    .from(entity)
+    .upsert(payload)
+    .select()
+    .single();
 
-  const idx = db[entity].findIndex(i => i.id === item.id);
-  if (idx === -1) db[entity].push(item);
-  else db[entity][idx] = item;
+  if (error) {
+    console.error(error);
+    throw error;
+  }
 
-  await write(db);
-  return item;
+  return data;
 }
 
 export async function remove(entity, id) {
-  const db = await read();
-  db[entity] = db[entity].filter(i => i.id !== id);
-  await write(db);
+  const { error } = await supabase
+    .from(entity)
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error(error);
+    throw error;
+  }
 }
 
+/* =========================
+   SONGS / PERFORMANCES
+========================= */
 
 export async function addPerformance(songId, singerId, key, date) {
-  const db = await read();
-  const song = db.songs.find(s => s.id === songId);
-  if (!song) throw new Error('Música não encontrada');
-  song.performances = song.performances || [];
-  song.performances.push({ singerId, key, date });
-  await write(db);
-  return song;
+  const { data: song, error } = await supabase
+    .from('songs')
+    .select('performances')
+    .eq('id', songId)
+    .single();
+
+  if (error) throw error;
+
+  const performances = song.performances || [];
+
+  performances.push({ singerId, key, date });
+
+  const { data, error: updateError } = await supabase
+    .from('songs')
+    .update({ performances })
+    .eq('id', songId)
+    .select()
+    .single();
+
+  if (updateError) throw updateError;
+
+  return data;
 }
 
-export async function addSchedule(date, singers, musiciansSelection, leaderId, songsSelection) {
-  const db = await read();
-  db.schedule = db.schedule || [];
+/* =========================
+   SCHEDULE
+========================= */
 
-  const existingIndex = db.schedule.findIndex(s => s.date === date && s.leaderId === leaderId);
+export async function addSchedule(
+  date,
+  singers,
+  musiciansSelection,
+  leaderId,
+  songsSelection
+) {
+  const { data: existing } = await supabase
+    .from('schedule')
+    .select('*')
+    .eq('date', date)
+    .eq('leaderId', leaderId)
+    .maybeSingle();
 
   const schedule = {
-    id: existingIndex >= 0 ? db.schedule[existingIndex].id : uuidv4(),
+    id: existing?.id || uuidv4(),
     date,
     singers,
     musiciansSelection,
     leaderId,
-    songsSelection
+    songsSelection,
   };
 
-  if (existingIndex >= 0) db.schedule[existingIndex] = schedule;
-  else db.schedule.push(schedule);
+  const { data, error } = await supabase
+    .from('schedule')
+    .upsert(schedule)
+    .select()
+    .single();
 
-  await write(db);
-  return schedule;
+  if (error) throw error;
+
+  return data;
 }
 
 export async function deleteSchedule(id) {
-  const db = await read();
-  db.schedule = db.schedule.filter(sch => sch.id !== id);
-  await write(db);
+  const { error } = await supabase
+    .from('schedule')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
 }
+
+/* =========================
+   IMPEDIMENTS
+========================= */
 
 export async function addImpediment(memberId, date) {
-  const db = await read();
-  db.impediments = db.impediments || [];
-  db.impediments.push({ id: uuidv4(), memberId, date });
-  await write(db);
+  const { data, error } = await supabase
+    .from('impediments')
+    .insert({
+      id: uuidv4(),
+      memberId,
+      date,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
 }
 
+/* =========================
+   LEGACY (não faz nada agora)
+========================= */
+
 export async function clearAll() {
-  localStorage.removeItem(STORAGE_KEY);
-  await seedIfNeeded();
+  console.warn('clearAll ignorado: usando Supabase');
 }

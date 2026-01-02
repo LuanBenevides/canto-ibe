@@ -4,12 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "homepage": "https://luanbenevides.github.io/canto-ibe",
-   "scripts": {
+  "scripts": {
     "build": "vite build",
     "deploy": "npm run build && gh-pages -d dist"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
+    "@supabase/supabase-js": "^2.89.0",
     "antd": "^5.27.6",
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
