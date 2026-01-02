@@ -3,11 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "vite",
+  "homepage": "https://luanbenevides.github.io/canto-ibe",
+   "scripts": {
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "deploy": "npm run build && gh-pages -d dist"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
