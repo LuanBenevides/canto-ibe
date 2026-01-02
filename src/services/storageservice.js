@@ -2,11 +2,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 const STORAGE_KEY = 'canto-ibe:data';
 
-// Inicializa o banco se necessário
 async function seedIfNeeded() {
   if (!localStorage.getItem(STORAGE_KEY)) {
     try {
-      const res = await fetch('/data.json');
+      const res = await fetch(`${import.meta.env.BASE_URL}data.json`);
       const data = await res.json();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (err) {
@@ -27,20 +26,16 @@ async function seedIfNeeded() {
   }
 }
 
-// Lê todo o banco
 async function read() {
   await seedIfNeeded();
   return JSON.parse(localStorage.getItem(STORAGE_KEY));
 }
 
-// Grava todo o banco
 async function write(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-// =======================
-// CRUD GENÉRICO
-// =======================
+
 export async function getAll(entity) {
   const db = await read();
   return db[entity] || [];
@@ -71,9 +66,7 @@ export async function remove(entity, id) {
   await write(db);
 }
 
-// =======================
-// RELAÇÃO CANTOR ↔ MÚSICA
-// =======================
+
 export async function addPerformance(songId, singerId, key, date) {
   const db = await read();
   const song = db.songs.find(s => s.id === songId);
@@ -84,14 +77,10 @@ export async function addPerformance(songId, singerId, key, date) {
   return song;
 }
 
-// =======================
-// AGENDA / ESCALA
-// =======================
 export async function addSchedule(date, singers, musiciansSelection, leaderId, songsSelection) {
   const db = await read();
   db.schedule = db.schedule || [];
 
-  // verifica se já existe escala no mesmo dia e líder
   const existingIndex = db.schedule.findIndex(s => s.date === date && s.leaderId === leaderId);
 
   const schedule = {
@@ -116,9 +105,6 @@ export async function deleteSchedule(id) {
   await write(db);
 }
 
-// =======================
-// IMPEDIMENTOS
-// =======================
 export async function addImpediment(memberId, date) {
   const db = await read();
   db.impediments = db.impediments || [];
@@ -126,9 +112,6 @@ export async function addImpediment(memberId, date) {
   await write(db);
 }
 
-// =======================
-// RESET
-// =======================
 export async function clearAll() {
   localStorage.removeItem(STORAGE_KEY);
   await seedIfNeeded();
