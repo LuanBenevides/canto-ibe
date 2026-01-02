@@ -12,11 +12,7 @@ import {
   DatePicker,
   message,
 } from 'antd';
-import {
-  EditOutlined,
-  DeleteOutlined,
-  SaveOutlined,
-} from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getAll, upsert, remove } from '../services/storageService';
 
@@ -37,8 +33,7 @@ export default function Impediments() {
 
   async function loadImpediments() {
     setLoading(true);
-    const data = await getAll('impediments');
-    setImpediments(data);
+    setImpediments(await getAll('impediments'));
     setLoading(false);
   }
 
@@ -47,18 +42,30 @@ export default function Impediments() {
     const musicians = await getAll('musicians');
 
     const merged = [
-      ...singers.map(s => ({ ...s, type: 'Cantor' })),
-      ...musicians.map(m => ({ ...m, type: 'Músico' })),
+      ...singers.map(s => ({
+        id: s.id,
+        label: `${s.firstName} ${s.lastName}`,
+        type: 'singer',
+      })),
+      ...musicians.map(m => ({
+        id: m.id,
+        label: m.name,
+        type: 'musician',
+      })),
     ];
 
     setPeople(merged);
   }
 
   async function onSave(values) {
+    const selected = people.find(p => p.id === values.personId);
+
     const payload = {
       ...editing,
-      ...values,
+      personId: values.personId,
+      personType: selected.type,
       date: values.date.format('YYYY-MM-DD'),
+      reason: values.reason || '',
     };
 
     await upsert('impediments', payload);
@@ -85,44 +92,30 @@ export default function Impediments() {
   const columns = [
     {
       title: 'Pessoa',
-      key: 'person',
       render: (_, record) => {
-        const person = people.find(p => p.id === record.personId);
+        const p = people.find(p => p.id === record.personId);
         return (
           <Text>
-            {person?.name || '-'} <Text type="secondary">({person?.type})</Text>
+            {p?.label || '-'}{' '}
+            <Text type="secondary">
+              ({record.personType === 'singer' ? 'Cantor' : 'Músico'})
+            </Text>
           </Text>
         );
       },
     },
-    {
-      title: 'Data',
-      dataIndex: 'date',
-      key: 'date',
-    },
-    {
-      title: 'Motivo',
-      dataIndex: 'reason',
-      key: 'reason',
-    },
+    { title: 'Data', dataIndex: 'date' },
+    { title: 'Motivo', dataIndex: 'reason' },
     {
       title: 'Ações',
-      key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
+          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
             Editar
           </Button>
-
           <Popconfirm
             title="Deseja remover este impedimento?"
             onConfirm={() => handleDelete(record.id)}
-            okText="Sim"
-            cancelText="Não"
           >
             <Button type="link" danger icon={<DeleteOutlined />}>
               Apagar
@@ -134,32 +127,20 @@ export default function Impediments() {
   ];
 
   return (
-    <Card
-      style={{
-        maxWidth: 900,
-        margin: '2rem auto',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-        borderRadius: 12,
-      }}
-    >
+    <Card style={{ maxWidth: 900, margin: '2rem auto' }}>
       <Title level={3}>Impedimentos</Title>
 
       <Card size="small" style={{ marginBottom: 24 }}>
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={onSave}
-          autoComplete="off"
-        >
+        <Form form={form} layout="vertical" onFinish={onSave}>
           <Form.Item
             label="Pessoa"
             name="personId"
             rules={[{ required: true, message: 'Selecione a pessoa' }]}
           >
-            <Select placeholder="Selecione o músico ou cantor">
+            <Select placeholder="Selecione cantor ou músico">
               {people.map(p => (
                 <Select.Option key={p.id} value={p.id}>
-                  {p.name} ({p.type})
+                  {p.label} ({p.type === 'singer' ? 'Cantor' : 'Músico'})
                 </Select.Option>
               ))}
             </Select>
@@ -174,27 +155,19 @@ export default function Impediments() {
           </Form.Item>
 
           <Form.Item label="Motivo" name="reason">
-            <Input.TextArea placeholder="Motivo do impedimento (opcional)" />
+            <Input.TextArea />
           </Form.Item>
 
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
-                {editing ? 'Atualizar' : 'Salvar'}
+          <Space>
+            <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
+              {editing ? 'Atualizar' : 'Salvar'}
+            </Button>
+            {editing && (
+              <Button onClick={() => { form.resetFields(); setEditing(null); }}>
+                Cancelar
               </Button>
-
-              {editing && (
-                <Button
-                  onClick={() => {
-                    form.resetFields();
-                    setEditing(null);
-                  }}
-                >
-                  Cancelar
-                </Button>
-              )}
-            </Space>
-          </Form.Item>
+            )}
+          </Space>
         </Form>
       </Card>
 
@@ -203,7 +176,6 @@ export default function Impediments() {
         columns={columns}
         rowKey="id"
         loading={loading}
-        pagination={{ pageSize: 5 }}
       />
     </Card>
   );

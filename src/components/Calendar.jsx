@@ -17,7 +17,7 @@ import dayjs from 'dayjs';
 import { getAll, addSchedule, deleteSchedule } from '../services/storageService';
 import { downloadMonthlySchedule } from '../utils/pdf';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 export default function AgendaCalendar() {
   const [date, setDate] = useState(dayjs());
@@ -26,29 +26,35 @@ export default function AgendaCalendar() {
   const [instruments, setInstruments] = useState([]);
   const [songs, setSongs] = useState([]);
   const [schedule, setSchedule] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
   async function loadData() {
-    setLoading(true);
-    const [s, m, i, sch, so] = await Promise.all([
-      getAll('singers'),
-      getAll('musicians'),
-      getAll('instruments'),
-      getAll('schedule'),
-      getAll('songs'),
-    ]);
-    setSingers(s);
-    setMusicians(m);
-    setInstruments(i);
-    setSchedule(sch);
-    setSongs(so);
-    setLoading(false);
+    try {
+      setLoading(true);
+      const [s, m, i, sch, so] = await Promise.all([
+        getAll('singers'),
+        getAll('musicians'),
+        getAll('instruments'),
+        getAll('schedule'),
+        getAll('songs'),
+      ]);
+      setSingers(s);
+      setMusicians(m);
+      setInstruments(i);
+      setSchedule(sch);
+      setSongs(so);
+    } catch {
+      message.error('Erro ao carregar dados');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function saveSchedule(values) {
@@ -56,24 +62,37 @@ export default function AgendaCalendar() {
     if (!values.songsSelection || values.songsSelection.length === 0)
       return message.warning('Selecione pelo menos uma música');
 
-    await addSchedule(
-      date.format('YYYY-MM-DD'),
-      values.singers,
-      values.musiciansSelection,
-      values.leaderId,
-      values.songsSelection
-    );
-
-    message.success('Escala salva!');
-    form.resetFields();
-    loadData();
+    try {
+      setSaving(true);
+      await addSchedule(
+        date.format('YYYY-MM-DD'),
+        values.singers,
+        values.musiciansSelection,
+        values.leaderId,
+        values.songsSelection
+      );
+      message.success('Escala salva!');
+      form.resetFields();
+      await loadData();
+    } catch {
+      message.error('Erro ao salvar escala');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  const selectedSchedules = schedule.filter(
-    s => s.date === date.format('YYYY-MM-DD')
-  );
+  function renderMusicians(sch) {
+    return Object.entries(sch.musiciansSelection || {})
+      .map(([instId, musId]) => {
+        const inst = instruments.find(i => i.id === instId)?.name || 'Instrumento removido';
+        const mus = musicians.find(m => m.id === musId)?.name || 'Músico removido';
+        return `${inst}: ${mus}`;
+      })
+      .join(' | ');
+  }
 
-  // Colunas da tabela de escalas
+  const selectedSchedules = schedule.filter(s => s.date === date.format('YYYY-MM-DD'));
+
   const columns = [
     {
       title: 'Dirigente',
@@ -87,7 +106,7 @@ export default function AgendaCalendar() {
       title: 'Cantores',
       key: 'singers',
       render: (_, sch) =>
-        sch.singers
+        (sch.singers || [])
           .map(id => {
             const c = singers.find(s => s.id === id);
             return c ? `${c.firstName} ${c.lastName}` : 'Removido';
@@ -97,20 +116,13 @@ export default function AgendaCalendar() {
     {
       title: 'Músicos',
       key: 'musicians',
-      render: (_, sch) =>
-        Object.entries(sch.musiciansSelection)
-          .map(([instId, musId]) => {
-            const inst = instruments.find(i => i.id === instId)?.name;
-            const mus = musicians.find(m => m.id === musId)?.name;
-            return `${inst}: ${mus || 'Removido'}`;
-          })
-          .join(' | '),
+      render: (_, sch) => renderMusicians(sch),
     },
     {
       title: 'Músicas',
       key: 'songs',
       render: (_, sch) =>
-        sch.songsSelection
+        (sch.songsSelection || [])
           .map(s => {
             const song = songs.find(song => song.id === s.songId);
             return song ? `${song.title} (${s.key || 'N/A'})` : 'Removida';
@@ -139,25 +151,34 @@ export default function AgendaCalendar() {
     },
   ];
 
+  function handleDateChange(value) {
+    setDate(value || dayjs());
+  }
+
   return (
     <Card
       style={{ maxWidth: 1000, margin: '2rem auto', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
     >
-      <Title level={3}>Agenda / Escala de Louvor</Title>
+      <Title level={3} style={{ marginBottom: 24 }}>
+        Agenda / Escala de Louvor
+      </Title>
 
-      {/* Data */}
-      <Form form={form} layout="vertical" onFinish={saveSchedule} initialValues={{ songsSelection: [] }}>
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={saveSchedule}
+        initialValues={{ songsSelection: [] }}
+      >
         <Form.Item label="Data">
-          <DatePicker value={date} onChange={setDate} style={{ width: '100%' }} />
+          <DatePicker value={date} onChange={handleDateChange} style={{ width: '100%' }} />
         </Form.Item>
 
-        {/* Dirigente */}
         <Form.Item
           label="Dirigente"
           name="leaderId"
           rules={[{ required: true, message: 'Selecione o dirigente' }]}
         >
-          <Select placeholder="Selecione cantor">
+          <Select placeholder="Selecione cantor" loading={loading}>
             {singers.map(s => (
               <Select.Option key={s.id} value={s.id}>
                 {s.firstName} {s.lastName}
@@ -166,7 +187,6 @@ export default function AgendaCalendar() {
           </Select>
         </Form.Item>
 
-        {/* Cantores */}
         <Form.Item label="Cantores" name="singers">
           <Select
             mode="multiple"
@@ -175,13 +195,17 @@ export default function AgendaCalendar() {
               label: `${s.firstName} ${s.lastName}`,
               value: s.id,
             }))}
+            loading={loading}
           />
         </Form.Item>
 
-        {/* Músicos e instrumentos */}
         {instruments.map(inst => (
-          <Form.Item label={inst.name} name={['musiciansSelection', inst.id]} key={inst.id}>
-            <Select placeholder={`Selecione músico para ${inst.name}`}>
+          <Form.Item
+            label={inst.name}
+            name={['musiciansSelection', inst.id]}
+            key={inst.id}
+          >
+            <Select placeholder={`Selecione músico para ${inst.name}`} loading={loading}>
               {musicians
                 .filter(m => m.instrumentId === inst.id)
                 .map(m => (
@@ -193,18 +217,21 @@ export default function AgendaCalendar() {
           </Form.Item>
         ))}
 
-        {/* Músicas */}
         <Form.List name="songsSelection">
           {(fields, { add, remove }) => (
             <>
               {fields.map(({ key, name, ...restField }) => (
-                <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                <Space
+                  key={key}
+                  style={{ display: 'flex', marginBottom: 8 }}
+                  align="baseline"
+                >
                   <Form.Item
                     {...restField}
                     name={[name, 'songId']}
                     rules={[{ required: true, message: 'Selecione uma música' }]}
                   >
-                    <Select placeholder="Selecione música" style={{ width: 200 }}>
+                    <Select placeholder="Selecione música" style={{ width: 200 }} loading={loading}>
                       {songs.map(song => (
                         <Select.Option key={song.id} value={song.id}>
                           {song.title}
@@ -212,10 +239,12 @@ export default function AgendaCalendar() {
                       ))}
                     </Select>
                   </Form.Item>
+
                   <Form.Item {...restField} name={[name, 'key']}>
                     <Input placeholder="Tom" />
                   </Form.Item>
-                  <Button type="danger" onClick={() => remove(name)}>
+
+                  <Button danger onClick={() => remove(name)}>
                     Remover
                   </Button>
                 </Space>
@@ -231,9 +260,15 @@ export default function AgendaCalendar() {
 
         <Form.Item>
           <Space>
-            <Button type="primary" htmlType="submit" icon={<FileTextOutlined />}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              icon={<FileTextOutlined />}
+              loading={saving}
+            >
               Salvar escala
             </Button>
+
             <Button
               onClick={() =>
                 downloadMonthlySchedule(schedule, singers, musicians, instruments, songs)
@@ -245,7 +280,7 @@ export default function AgendaCalendar() {
         </Form.Item>
       </Form>
 
-      <Title level={4} style={{ marginTop: 24 }}>
+      <Title level={4} style={{ marginTop: 24, marginBottom: 16 }}>
         Escalas existentes ({date.format('YYYY-MM-DD')})
       </Title>
 

@@ -56,20 +56,32 @@ export default function Songs() {
   }
 
   async function onSaveSong(values) {
-    const payload = editing ? { ...editing, ...values, lyrics } : { ...values, lyrics };
-    await upsert('songs', payload);
-    message.success(editing ? 'Música atualizada!' : 'Música salva!');
-    songForm.resetFields();
-    setEditing(null);
-    setLyrics('');
-    loadSongs();
-  }
+  const payload = editing
+    ? { ...values, id: editing.id, lyrics }
+    : { ...values, lyrics };
+
+  await upsert('songs', payload);
+  message.success(editing ? 'Música atualizada!' : 'Música salva!');
+  songForm.resetFields();
+  setEditing(null);
+  setLyrics('');
+  loadSongs();
+}
+
 
   function handleEdit(song) {
-    setEditing(song);
-    songForm.setFieldsValue(song);
-    setLyrics(song.lyrics || '');
-  }
+  const clean = {
+    id: song.id,
+    title: song.title,
+    originalKey: song.originalKey,
+    lyrics: song.lyrics || '',
+  };
+
+  setEditing(clean);
+  songForm.setFieldsValue(clean);
+  setLyrics(clean.lyrics);
+}
+
 
   async function handleDelete(id) {
     await remove('songs', id);

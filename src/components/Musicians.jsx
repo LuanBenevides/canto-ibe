@@ -42,18 +42,30 @@ export default function Musicians() {
   }
 
   async function onSave(values) {
-    const payload = editing ? { ...editing, ...values } : values;
-    await upsert('musicians', payload);
-    message.success(editing ? 'Músico atualizado!' : 'Músico salvo!');
-    form.resetFields();
-    setEditing(null);
-    loadMusicians();
-  }
+  const payload = editing
+    ? { ...values, id: editing.id }
+    : values;
+
+  await upsert('musicians', payload);
+  message.success(editing ? 'Músico atualizado!' : 'Músico salvo!');
+  form.resetFields();
+  setEditing(null);
+  loadMusicians();
+}
+
 
   function handleEdit(record) {
-    setEditing(record);
-    form.setFieldsValue(record);
-  }
+  const clean = {
+    id: record.id,
+    name: record.name,
+    contact: record.contact,
+    instrumentId: record.instrumentId,
+  };
+
+  setEditing(clean);
+  form.setFieldsValue(clean);
+}
+
 
   async function handleDelete(id) {
     await remove('musicians', id);

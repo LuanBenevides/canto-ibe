@@ -38,7 +38,10 @@ export default function Singers() {
   }
 
   async function onFinish(values) {
-    const payload = editing ? { ...editing, ...values } : values;
+    const payload = editing
+      ? { ...values, id: editing.id }
+      : values;
+
     await upsert('singers', payload);
     message.success(editing ? 'Cantor atualizado!' : 'Cantor salvo!');
     form.resetFields();
@@ -46,10 +49,20 @@ export default function Singers() {
     load();
   }
 
+
   function handleEdit(record) {
-    setEditing(record);
-    form.setFieldsValue(record);
-  }
+  const clean = {
+    id: record.id,
+    firstName: record.firstName,
+    lastName: record.lastName,
+    contact: record.contact,
+    preferredKey: record.preferredKey,
+  };
+
+  setEditing(clean);
+  form.setFieldsValue(clean);
+}
+
 
   async function handleDelete(id) {
     await remove('singers', id);

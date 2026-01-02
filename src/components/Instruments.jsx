@@ -44,8 +44,13 @@ export default function Instruments() {
   }
 
   function edit(i) {
-    setForm(i);
+    setForm({
+      id: i.id,
+      name: i.name,
+      available: i.available,
+    });
   }
+
 
   async function del(id) {
     await remove('instruments', id);
@@ -72,7 +77,7 @@ export default function Instruments() {
         />
 
         <Checkbox
-          checked={form.available}
+          checked={!!form.available}
           onChange={(e) => setForm({ ...form, available: e.target.checked })}
         >
           Disponível
