@@ -1,0 +1,44 @@
+.container {
+  font-family: 'Inter', sans-serif;
+  padding: 20px;
+  background: #fff7f5; /* tom bem claro, neutro */
+  min-height: 100vh;
+}
+
+.navbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.tabButton {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background-color: #D87C2A; /* laranja queimado */
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.tabButton:hover {
+  background-color: #A31F2B; /* vermelho escuro */
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.tabButtonActive {
+  background-color: #A31F2B; /* vermelho escuro */
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.content {
+  background-color: #FFFFFF;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
+}
